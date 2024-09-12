@@ -8,25 +8,24 @@ import {
   getMonth,
   addMonths,
   differenceInMonths,
+  min,
 } from "date-fns";
 import { ru } from "date-fns/locale";
+
+import { BUTTON_TEXT } from "@/utils/constants";
+import { View } from "@/types/types";
+import RangeButtons from "./RangeButtons";
+import { getMaxRange, getFullYear, getFullMonth } from "@/utils/dateUtils";
+import { getMarks } from "@/utils/getMarks";
+import { useWindowResize } from "@/hooks/useWindowResize";
 
 interface DateRangeSliderProps {
   minDate: Date;
   maxDate: Date;
-  selectedStartDate: Date | null;
-  selectedEndDate: Date | null;
+  selectedStartDate?: Date | null;
+  selectedEndDate?: Date | null;
+  baseView?: View;
   onDateChange?: (startDate: Date | null, endDate: Date | null) => void;
-}
-
-enum View {
-  Years = "years",
-  Months = "months",
-}
-
-interface IMark {
-  value: string;
-  type: "normal" | "bold";
 }
 
 const DateRangeSlider = ({
@@ -35,41 +34,28 @@ const DateRangeSlider = ({
   selectedStartDate,
   selectedEndDate,
   onDateChange,
+  baseView = View.Months,
 }: DateRangeSliderProps) => {
-  const [view, setView] = useState<View>(View.Months);
+  const [view, setView] = useState<View>(baseView);
   const [range, setRange] = useState([0, 0]);
   const [maxVisibleMarks, setMaxVisibleMarks] = useState(10);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const marksPerScreen = Math.floor(width / 60);
-      setMaxVisibleMarks(marksPerScreen);
-    };
+  const handleResize = (width: number) => {
+    const WIDTH_PER_MARK = 100;
+    const marksPerScreen = Math.floor(width / WIDTH_PER_MARK);
+    setMaxVisibleMarks(marksPerScreen);
+  };
 
-    window.addEventListener("resize", handleResize);
-    handleResize();
-
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  useWindowResize(handleResize);
 
   useEffect(() => {
-    if (view === View.Years) {
-      setRange([
-        selectedStartDate ? getYear(selectedStartDate) - getYear(minDate) : 0,
-        selectedEndDate
-          ? getYear(selectedEndDate) - getYear(minDate)
-          : getYear(maxDate) - getYear(minDate),
-      ]);
-    } else {
-      const totalMonths = differenceInMonths(maxDate, minDate);
-      setRange([
-        selectedStartDate ? differenceInMonths(selectedStartDate, minDate) : 0,
-        selectedEndDate
-          ? differenceInMonths(selectedEndDate, minDate)
-          : totalMonths,
-      ]);
-    }
+    const totalMonths = differenceInMonths(maxDate, minDate);
+    setRange([
+      selectedStartDate ? differenceInMonths(selectedStartDate, minDate) : 0,
+      selectedEndDate
+        ? differenceInMonths(selectedEndDate, minDate)
+        : totalMonths,
+    ]);
   }, [minDate, maxDate, selectedStartDate, selectedEndDate]);
 
   const handleRangeChange = (values: number[]) => {
@@ -80,99 +66,20 @@ const DateRangeSlider = ({
     onDateChange?.(startDate, endDate);
   };
 
-  const formatTooltip = (value: number): IMark => {
-    if (view === View.Years) {
-      return {
-        value: getFullYear(value),
-        type: "normal",
-      };
-    } else {
-      const date = addMonths(minDate, value);
-      if (getMonth(date) === 0) {
-        return {
-          value: format(date, "yyyy"),
-          type: "bold",
-        };
-      }
-      return {
-        value: format(date, "LLLL", { locale: ru }).slice(0, 3),
-        type: "normal",
-      };
-    }
-  };
-
-  const getFullMonth = (value: number) => {
-    const date = format(addMonths(minDate, value), "LLLL ", {
-      locale: ru,
-    });
-    return date[0].toUpperCase() + date.slice(1);
-  };
-
-  const getFullYear = (value: number) => {
-    return format(addMonths(minDate, value), "yyyy", {
-      locale: ru,
-    });
-  };
-
-  const getMaxRange = () => {
-    const totalMonths = differenceInMonths(maxDate, minDate);
-    return totalMonths;
-  };
-
-  const getMarks = () => {
-    const marks = [];
-    const totalSteps = getMaxRange();
-    const step = Math.ceil(totalSteps / maxVisibleMarks);
-
-    for (let i = 0; i <= totalSteps; i++) {
-      const date = addMonths(minDate, i);
-      const isYearStart = getMonth(date) === 0;
-      if (view === View.Months) {
-        if (isYearStart) {
-          marks.push({
-            value: format(date, "yyyy"),
-            type: "bold",
-          });
-        } else if (i % step === 0 || isYearStart) {
-          marks.push(formatTooltip(i));
-        } else {
-          marks.push({ value: "", type: "normal" });
-        }
-      } else if (view === View.Years) {
-        if (isYearStart) marks.push(formatTooltip(i));
-        else marks.push({ value: "", type: "normal" });
-      }
-    }
-    return marks;
-  };
-
   return (
     <div className="w-full p-8  h-min  relative flex flex-col md:flex-row">
-      <div className="flex md:mt-2 md:mr-4 md:flex-col justify-center  md:justify-center   text-[13px]  mb-4">
-        <button
-          onClick={() => setView(View.Years)}
-          className={`px-4 py-2 min-w-max rounded-lg text-blue-500 ${
-            view === View.Years && "font-[600] text-[14px]"
-          }`}
-        >
-          Все года
-        </button>
-        <button
-          onClick={() => setView(View.Months)}
-          className={`px-4 py-2 rounded-lg text-blue-500 ${
-            view === View.Months && "font-[600] text-[14px]"
-          }`}
-        >
-          Месяца
-        </button>
-      </div>
+      <RangeButtons
+        currentView={view}
+        onViewChange={setView}
+        buttonText={BUTTON_TEXT}
+      />
       <div className="w-full">
         <Slider
           className="w-full mt-12  h-2 bg-gray-300 rounded-lg"
           value={range}
           onChange={handleRangeChange}
           min={0}
-          max={getMaxRange()}
+          max={getMaxRange(minDate, maxDate)}
           step={1}
           renderThumb={(props, state) => {
             const { key, ...othersProps } = props;
@@ -189,9 +96,11 @@ const DateRangeSlider = ({
                   } text-white p-1 rounded-md text-xs`}
                 >
                   <p className="text-blue-700">
-                    {getFullMonth(state.valueNow)}
+                    {getFullMonth(state.valueNow, minDate)}
                   </p>
-                  <p className="text-blue-700">{getFullYear(state.valueNow)}</p>
+                  <p className="text-blue-700">
+                    {getFullYear(state.valueNow, minDate)}
+                  </p>
                   <div
                     className={`absolute left-1/2 transform -translate-x-1/2 
         ${state.index === 0 ? "bottom-[-5px]" : "top-[-5px]"}`}
@@ -226,24 +135,26 @@ const DateRangeSlider = ({
         />
 
         <div className="relative w-full mt-2 mb-12">
-          {getMarks().map((mark, index, arr) => (
-            <div
-              key={index}
-              className={`absolute  ${
-                mark.type === "bold"
-                  ? `text-sm text-gray-800 font-[600] ${
-                      maxVisibleMarks <= arr.length && "top-4"
-                    }`
-                  : "text-xs text-gray-500"
-              } `}
-              style={{
-                left: `${(index / getMaxRange()) * 100}%`,
-                transform: "translateX(-50%)",
-              }}
-            >
-              {mark.value}
-            </div>
-          ))}
+          {getMarks(minDate, maxDate, view, maxVisibleMarks).map(
+            (mark, index, arr) => (
+              <div
+                key={index}
+                className={`absolute  ${
+                  mark.type === "bold"
+                    ? `text-sm text-gray-800 font-[600] ${
+                        maxVisibleMarks <= arr.length && "top-4"
+                      }`
+                    : "text-xs text-gray-500"
+                } `}
+                style={{
+                  left: `${(index / getMaxRange(minDate, maxDate)) * 100}%`,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                {mark.value}
+              </div>
+            )
+          )}
         </div>
       </div>
     </div>
