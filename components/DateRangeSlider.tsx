@@ -2,15 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Slider from "react-slider";
-import {
-  format,
-  getYear,
-  getMonth,
-  addMonths,
-  differenceInMonths,
-  min,
-} from "date-fns";
-import { ru } from "date-fns/locale";
+import { addMonths, differenceInMonths } from "date-fns";
 
 import { BUTTON_TEXT } from "@/utils/constants";
 import { View } from "@/types/types";

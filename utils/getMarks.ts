@@ -1,4 +1,4 @@
-import { addMonths, getMonth, differenceInMonths } from "date-fns";
+import { addMonths, getMonth } from "date-fns";
 import { getFullYear, formatTooltip, getMaxRange } from "./dateUtils";
 import { IMark, View } from "@/types/types";
 
